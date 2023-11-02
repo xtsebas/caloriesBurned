@@ -15,7 +15,7 @@ bool *notificado; // Lista para rastrear si ya hemos notificado sobre un estudia
 int numThreads = 4; // Número de hilos
 
 // Mutex para garantizar acceso seguro a los datos compartidos
-std::mutex mutex;
+std::mutex dataMutex;
 
 // Estructura para pasar datos a cada hilo
 struct ThreadData {
@@ -47,39 +47,24 @@ int generarID() {
 void sumaPorUsuario(int id) {
     // Genera una semilla única basada en el tiempo actual y el ID del hilo.
     unsigned seed = static_cast<unsigned>(time(nullptr)) + id;
-
-    // Inicializa el generador de números aleatorios Mersenne Twister con la semilla generada.
     std::mt19937 generator(seed);
-
-    // Define una distribución uniforme que generará números entre 1 y 25.
     std::uniform_int_distribution<int> dist(1, 25);
 
     for (int tiempo = 0; tiempo < 50; ++tiempo) {
         if (dist(generator) < 60) {
-            // Define una nueva distribución uniforme para generar calorías quemadas entre 1 y 25.
             std::uniform_int_distribution<int> distCal(1, 25);
+            int caloriasQuemadas = distCal(generator); // Mover la definición aquí
 
-            // Genera un número aleatorio que representa las calorías quemadas en esta iteración.
-            int caloriasQuemadas = distCal(generator);
-
-            // Bloquea el acceso al arreglo de calorías utilizando un mutex
-            mutex.lock();
+            std::lock_guard<std::mutex> lock(dataMutex); // Usar lock_guard
             listaCalories[id] += caloriasQuemadas;
-            mutex.unlock();
         }
     }
 }
 
 bool verificador(int index) {
-    /**
-     * Notifica al usuario que ID ya ha llegado a las 500 calorías o más
-     */
+    std::lock_guard<std::mutex> lock(dataMutex); // Usar lock_guard
     if (listaCalories[index] >= 500 && !notificado[index]) {
-
-        // Bloquea el acceso al arreglo de notificados utilizando un mutex
-        mutex.lock();
         cout << "El estudiante con ID: " << listaID[index] << " ha quemado 500 calorías o más." << endl;
-        mutex.unlock();
         notificado[index] = true;
         return true;
     }
@@ -97,7 +82,7 @@ void *threadFunction(void *data) {
 }
 
 int main() {
-    srand(static_cast<unsigned>(time(nullptr));
+    srand(static_cast<unsigned>(time(nullptr)));
 
     notificado = new bool[24]();
     listaID = new int[24];
