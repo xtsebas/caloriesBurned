@@ -12,7 +12,7 @@ using namespace std;
 int *listaID; // Lista de ID de estudiantes
 int *listaCalories; // Lista de calorías por estudiante correspondiente de manera paralela
 bool *notificado; // Lista para rastrear si ya hemos notificado sobre un estudiante
-int numThreads = 4; // Número de hilos
+int numThreads = 24; // Número de hilos
 
 // Mutex para garantizar acceso seguro a los datos compartidos
 std::mutex dataMutex;
@@ -53,16 +53,18 @@ void sumaPorUsuario(int id) {
     for (int tiempo = 0; tiempo < 50; ++tiempo) {
         if (dist(generator) < 60) {
             std::uniform_int_distribution<int> distCal(1, 25);
-            int caloriasQuemadas = distCal(generator); // Mover la definición aquí
+            int caloriasQuemadas = distCal(generator);
 
-            std::lock_guard<std::mutex> lock(dataMutex); // Usar lock_guard
+            // Usar mutex para proteger el acceso a listaCalories
+            std::lock_guard<std::mutex> lock(dataMutex);
             listaCalories[id] += caloriasQuemadas;
         }
     }
 }
 
+
 bool verificador(int index) {
-    std::lock_guard<std::mutex> lock(dataMutex); // Usar lock_guard
+    std::lock_guard<std::mutex> lock(dataMutex);
     if (listaCalories[index] >= 500 && !notificado[index]) {
         cout << "El estudiante con ID: " << listaID[index] << " ha quemado 500 calorías o más." << endl;
         notificado[index] = true;
@@ -92,9 +94,10 @@ int main() {
     pthread_t threads[numThreads];
     std::vector<ThreadData> threadData(numThreads);
 
+    // Generar IDs para todos los estudiantes
     for (int i = 0; i < 24; ++i) {
         int idConvertido = generarID();
-        if (idConvertido != -1) {
+        if (idConvertido != 0) {  // Verificar que el ID generado sea válido
             listaID[i] = idConvertido;
         }
     }
@@ -110,7 +113,7 @@ int main() {
         pthread_join(threads[i], NULL);
     }
 
-    int totalCalorias = 0; // Variable para almacenar la suma total de calorías quemadas por todos los estudiantes
+    int totalCalorias = 0;
     for (int i = 0; i < 24; ++i) {
         totalCalorias += listaCalories[i];
     }
