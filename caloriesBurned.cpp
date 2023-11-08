@@ -9,22 +9,23 @@
 
 using namespace std;
 
+// Arreglos globales para almacenar los IDs de los estudiantes, las calorías quemadas y el estado de notificación.
 int *listaID; // Lista de ID de estudiantes
 int *listaCalories; // Lista de calorías por estudiante correspondiente de manera paralela
 bool *notificado; // Lista para rastrear si ya hemos notificado sobre un estudiante
-int numThreads = 24; // Número de hilos
+int numThreads = 24; // Número de hilos para crear, representando el número de estudiantes.
 
-// Mutex para garantizar acceso seguro a los datos compartidos
+// Mutex para sincronizar el acceso a recursos compartidos.
 std::mutex dataMutex;
 
-// Estructura para pasar datos a cada hilo
+// Estructura para pasar datos a los hilos.
 struct ThreadData {
     int id;
 };
 
 int generarID() {
     /**
-     * Función para generar de manera aleatoria cada uno de los IDs para los diferentes usuarios.
+     * Función para generar de manera aleatoria cada uno de los IDs para los diferentes estudiantes.
      */
     std::string id;
     for (int i = 0; i < 5; ++i) {
@@ -32,6 +33,7 @@ int generarID() {
         id += std::to_string(numeroAleatorio);
     }
 
+    // Intentar convertir el ID generado de string a entero.
     try {
         int idEntero = std::stoi(id);
         return idEntero;
@@ -50,21 +52,23 @@ void sumaPorUsuario(int id) {
     std::mt19937 generator(seed);
     std::uniform_int_distribution<int> dist(1, 25);
 
+    // Simula la quema de calorías a lo largo del tiempo.
     for (int tiempo = 0; tiempo < 50; ++tiempo) {
         if (dist(generator) < 60) {
             std::uniform_int_distribution<int> distCal(1, 25);
             int caloriasQuemadas = distCal(generator);
 
-            // Usar mutex para proteger el acceso a listaCalories
+            // Usa mutex para proteger el acceso al recurso compartido listaCalories.
             std::lock_guard<std::mutex> lock(dataMutex);
             listaCalories[id] += caloriasQuemadas;
         }
     }
 }
 
-
 bool verificador(int index) {
+    // Protege los recursos compartidos con un mutex.
     std::lock_guard<std::mutex> lock(dataMutex);
+    // Verifica si el estudiante ha quemado 500 o más calorías y no ha sido notificado.
     if (listaCalories[index] >= 500 && !notificado[index]) {
         cout << "El estudiante con ID: " << listaID[index] << " ha quemado 500 calorías o más." << endl;
         notificado[index] = true;
@@ -77,6 +81,7 @@ void *threadFunction(void *data) {
     ThreadData *threadData = (ThreadData *)data;
     int id = threadData->id;
 
+    // Realiza la simulación de quema de calorías y verifica la notificación.
     sumaPorUsuario(id);
     verificador(id);
 
@@ -84,48 +89,51 @@ void *threadFunction(void *data) {
 }
 
 int main() {
+    // Inicializa el generador de números aleatorios.
     srand(static_cast<unsigned>(time(nullptr)));
 
+    // Inicializa los arreglos globales.
     notificado = new bool[24]();
     listaID = new int[24];
     listaCalories = new int[24]();
 
-    // Crear hilos
+    // Crea los hilos.
     pthread_t threads[numThreads];
     std::vector<ThreadData> threadData(numThreads);
 
-    // Generar IDs para todos los estudiantes
+    // Genera los IDs para todos los estudiantes.
     for (int i = 0; i < 24; ++i) {
         int idConvertido = generarID();
-        if (idConvertido != 0) {  // Verificar que el ID generado sea válido
+        // Verifica que el ID generado sea válido.
+        if (idConvertido != 0) {
             listaID[i] = idConvertido;
         }
     }
 
-    // Simulación de quema de calorías
+    // Inicia la simulación de quema de calorías para cada estudiante en un hilo separado.
     for (int i = 0; i < numThreads; ++i) {
         threadData[i].id = i;
         pthread_create(&threads[i], NULL, threadFunction, &threadData[i]);
     }
 
-    // Esperar a que todos los hilos terminen
+    // Espera a que todos los hilos terminen.
     for (int i = 0; i < numThreads; ++i) {
         pthread_join(threads[i], NULL);
     }
 
+    // Calcula e imprime el total de calorías quemadas por la clase.
     int totalCalorias = 0;
     for (int i = 0; i < 24; ++i) {
         totalCalorias += listaCalories[i];
     }
-
-    // Imprimir el total de calorías quemadas por la clase
     cout << "Total de calorías quemadas por la clase: " << totalCalorias << endl;
 
-    // Imprimir el total de calorías quemadas por la clase por estudiante
+    // Imprime las calorías quemadas por cada estudiante.
     for (int i = 0; i < 24; ++i) {
         cout << "Estudiante con ID: " << listaID[i] << " quemó " << listaCalories[i] << " calorías." << endl;
     }
 
+    // Libera la memoria dinámicamente asignada.
     delete[] listaID;
     delete[] listaCalories;
     delete[] notificado;
